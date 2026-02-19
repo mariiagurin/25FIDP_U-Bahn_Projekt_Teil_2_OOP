@@ -6,6 +6,7 @@
  "Als Fahrgast möchte ich eine Haltestelle und meine gewünschte Zeit eingeben, um zu erfahren, wann die nächste Bahn dort tatsächlich abfährt."
  
 ---
+
 ### User-Story 2.1: Fahrgast
 "Als Fahrgast benötige ich Zeit zum Ein- und Aussteigen, deshalb muss die Bahn ein wenig an jeder Station verweilen."
 
@@ -16,6 +17,7 @@
 "Mit Blick auf die reale Anwendung möchten wir die Logik der Teststrecke auf die Struktur der Linie U1 übertragen."
  
 ---
+
 ### User Story 3.1: Verkehrsbetrieb (Kunde)
 „Wenn der Benutzer eine falsche Eingabe macht, darf das Problem nicht abstürzen.
  Kleine Abweichungen bei der Eingabe sollen möglich sein und die Ausgabe der gewünschten Information nicht behindern.“
@@ -28,6 +30,27 @@
  "Ich möchte nach Eingabe meines Ziels sehen, wann ich dort ankomme und was die Fahrt kostet, um Planungssicherheit zu haben."
 
 ---
+
+### User Story 4.1: Verkehrsbetrieb (Kunde)
+**„Die Fahrkartenautomaten arbeiten korrekt für U1. Nun soll das gesamte Netz einbezogen werden.“**
+
+### User Story 4.2: Fahrgast
+**„Da mein Ziel auf einer anderen Linie liegt, muss ich umsteigen. Ich möchte sicher sein, dass ich genug Zeit habe, meinen Anschlusszug zu erreichen.“**
+
+### User Story 4.3: Fahrgast
+**„Ich möchte möglichst schnell ans Ziel kommen. Wenn ich dadurch nicht früher ankomme, bleibe ich lieber sitzen, statt umzusteigen. Der Automat soll mir nur dann einen Umstieg empfehlen, wenn dieser sinnvoll ist.“**
+
+### User Story 4.4: Verkehrsbetrieb (Kunde)
+**„Als Verkehrsbetrieb (Kunde) wünschen wir uns, dass bei der Eingabe der Uhrzeit keine Gedanken zu Trennzeichen oder führenden Nullen notwendig sind.“**
+
+### User Story 4.5: Verkehrsbetrieb (Kunde)
+**„Um eine gleichbleibend hohe Softwarequalität sicherzustellen, möchte der Verkehrsbetrieb (Kunde), dass alle Modullösungen über eine Schnittstelle (Adapter) geprüft werden. Dadurch soll die automatisierte Abnahme effizient, standardisiert und vergleichbar erfolgen.“**
+
+---
+
+## Weitere Userstories für zukünfige Sprints
+> nicht vollständig, Ideensammlung wird auf clickup.com geführt
+
 ### User Story: Fahrgast
  "Da ich rechtzeitig an meinem Fahrtziel ankommen will, möchte ich die Möglichkeit haben, die Fahrtstrecke nach der Ankunftszeit wählen zu können."
 
@@ -47,12 +70,12 @@
 **optional** 
 "Ich möchte zwischen verschiedenen Routenoptionen wählen können, um entweder Geld zu sparen oder möglichst schnell anzukommen."
 
-
 ### User Story: Fahrgast
 „Da ich gehbehindert bin, brauche ich länger für einen Umstieg. Es wäre wunderbar, wenn ich am Automaten wählen könnte, wie lange ich dafür Zeit habe.
 
-
 ### User Story: Verkehrsbetrieb (Kunde)
  „Als Verkehrsplaner möchte ich Störungsmeldungen zentral an die Automaten senden, damit Fahrgäste über Streckensperrungen informiert werden und alternative Routen wählen können.“
+
+
 
 

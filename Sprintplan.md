@@ -5,7 +5,7 @@
 27.01.26 - 09.02.26
 
 ### Sprint 3: Reiseinformationen und Tariflogik
-10.02.26 - 18.02.26
+10.02.26 - 19.02.26
  
 ### Sprint 4
 19.02.26 - 

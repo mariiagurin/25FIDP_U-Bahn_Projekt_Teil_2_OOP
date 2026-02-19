@@ -1,0 +1,47 @@
+U1;Langwasser Süd;3;Gemeinschaftshaus
+U1;Gemeinschaftshaus;2;Langwasser Mitte
+U1;Langwasser Mitte;2;Scharfreiterring
+U1;Scharfreiterring;3;Langwasser Nord
+U1;Langwasser Nord;2;Messe
+U1;Messe;3;Bauernfeindstraße
+U1;Bauernfeindstraße;2;Hasenbuck
+U1;Hasenbuck;2;Frankenstraße
+U1;Frankenstraße;2;Maffeiplatz
+U1;Maffeiplatz;1;Aufseßplatz
+U1;Aufseßplatz;2;Hauptbahnhof
+U1;Hauptbahnhof;2;Lorenzkirche
+U1;Lorenzkirche;3;Weißer Turm
+U1;Weißer Turm;2;Plärrer
+U1;Plärrer;2;Gostenhof
+U1;Gostenhof;1;Bärenschanze
+U1;Bärenschanze;2;Maximilianstraße
+U1;Maximilianstraße;2;Eberhardshof
+U1;Eberhardshof;2;Muggenhof
+U1;Muggenhof;3;Stadtgrenze
+U1;Stadtgrenze;2;Jakobinenstraße
+U1;Jakobinenstraße;3;Fürth Hbf.
+U2;Röthenbach;2;Hohe Marter
+U2;Hohe Marter;2;Schweinau
+U2;Schweinau;2;St. Leonhard
+U2;St. Leonhard;2;Rothenburger Straße
+U2;Rothenburger Straße;3;Plärrer
+U2;Plärrer;2;Opernhaus
+U2;Opernhaus;2;Hauptbahnhof
+U2;Hauptbahnhof;2;Wöhrder Wiese
+U2;Wöhrder Wiese;1;Rathenauplatz
+U2;Rathenauplatz;2;Rennweg
+U2;Rennweg;2;Schoppershof
+U2;Schoppershof;2;Nordostbahnhof
+U2;Nordostbahnhof;3;Herrnhütte
+U2;Herrnhütte;2;Ziegelstein
+U2;Ziegelstein;3;Flughafen
+U3;Gustav-Adolf-Straße;4;Sündersbühl
+U3;Sündersbühl;2;Rothenburger Straße
+U3;Rothenburger Straße;3;Plärrer
+U3;Plärrer;2;Opernhaus
+U3;Opernhaus;2;Hauptbahnhof
+U3;Hauptbahnhof;2;Wöhrder Wiese
+U3;Wöhrder Wiese;1;Rathenauplatz
+U3;Rathenauplatz;2;Maxfeld
+U3;Maxfeld;3;Kaulbachplatz
+U3;Kaulbachplatz;2;Friedrich-Ebert-Platz
