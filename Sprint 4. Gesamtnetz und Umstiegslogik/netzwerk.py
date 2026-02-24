@@ -48,6 +48,7 @@ class Station:
         self.nachbarn           = {}   # {Station: Verbindung-Objekt}
         self.ist_endhaltestelle = False
         self.haltezeit          = 0    # Sekunden
+        self.min_umstiegszeit   = 0    # Minuten — wird durch Netzwerk gesetzt
 
     @property
     def ist_umsteigestation(self):
@@ -196,15 +197,15 @@ class Netzwerk:
         ]
     """
 
-    def __init__(self, linien_daten):
+    def __init__(self, linien_daten, umstiegszeiten=None):
         self.stationen = {}   # {name: Station-Objekt}
         self.linien    = []   # [Linie-Objekt, ...]
-        self._baue_graph(linien_daten)
+        self._baue_graph(linien_daten, umstiegszeiten)
 
 
     # PRIVATE: Graph bauen
 
-    def _baue_graph(self, linien_daten):
+    def _baue_graph(self, linien_daten, umstiegszeiten):
         """Baut den Graph auf."""
         self._stationen_erstellen(linien_daten)
         self._linien_erstellen(linien_daten)
@@ -212,6 +213,8 @@ class Netzwerk:
         self._endhaltestellen_markieren()
         self._stationen_verbinden()
         self._setze_haltezeiten(linien_daten)
+        if umstiegszeiten:
+            self._setze_umstiegszeiten(umstiegszeiten)
 
     def _stationen_erstellen(self, linien_daten):
         """Stationsnamen → Station-Objekte (keine Duplikate!)"""
@@ -280,7 +283,7 @@ class Netzwerk:
                         station.haltezeit,
                         linie_info["haltezeit_end"]
                     )
-                elif station.ist_umsteigestation:
+                elif len(station.linien) >= 3:
                     station.haltezeit = max(
                         station.haltezeit,
                         linie_info["haltezeit_umstieg"]
@@ -290,6 +293,22 @@ class Netzwerk:
                         station.haltezeit,
                         linie_info["haltezeit_standard"]
                     )
+
+    def _setze_umstiegszeiten(self, umstiegszeiten):
+        """Setzt Mindestumstiegszeiten automatisch anhand der Linienanzahl.
+
+        Hauptknoten (3+ Linien): z.B. Hauptbahnhof, Plärrer → längere Pufferzeit
+        Knoten       (2 Linien): alle anderen Umstiegsstationen → kürzere Pufferzeit
+
+        Args:
+            umstiegszeiten: {"hauptknoten": int, "knoten": int}  — Werte in Minuten
+        """
+        for station in self.stationen.values():
+            if station.ist_umsteigestation:
+                if len(station.linien) >= 3:
+                    station.min_umstiegszeit = umstiegszeiten["hauptknoten"]
+                else:
+                    station.min_umstiegszeit = umstiegszeiten["knoten"]
 
 
     # PUBLIC: Graph nutzen
@@ -327,6 +346,25 @@ class Netzwerk:
 
         bester_pfad = min(alle_pfade, key=lambda p: (self._zaehle_umstiege(p), len(p)))
         return Route(bester_pfad)
+
+    def finde_alle_routen(self, start_name, ziel_name):
+        """Gibt alle möglichen Routen zurück — ZugManager entscheidet welche beste ist.
+
+        Args:
+            start_name: STRING - Name der Startstation
+            ziel_name:  STRING - Name der Zielstation
+
+        Returns:
+            LIST[Route] - alle gefundenen Routen, oder []
+        """
+        start = self.get_station(start_name)
+        ziel  = self.get_station(ziel_name)
+
+        if not start or not ziel:
+            return []
+
+        alle_pfade = self._dfs(start, ziel, [], None, [])
+        return [Route(pfad) for pfad in alle_pfade]
 
     def _zaehle_umstiege(self, pfad):
         """Zählt Linienwechsel in einem (Station, Linie) Pfad."""

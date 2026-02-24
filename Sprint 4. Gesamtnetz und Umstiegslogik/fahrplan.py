@@ -65,6 +65,50 @@ class Zug:
 
         return abfahrt - timedelta(seconds=station.haltezeit)
 
+    def get_abfahrt_fahrgast(self, station, ab_idx=0):
+        """Abfahrtszeit gerundet auf die nächste volle Minute.
+
+        Args:
+            station: Station-Objekt
+            ab_idx:  Ab welchem Index suchen (Standard: 0)
+
+        Returns:
+            time-Objekt oder None
+        """
+        ergebnis = self.get_abfahrt(station, ab_idx)
+        if not ergebnis:
+            return None
+
+        _, abfahrt_dt = ergebnis
+
+        if abfahrt_dt.second > 0:
+            abfahrt_dt = abfahrt_dt + timedelta(minutes=1)
+
+        return abfahrt_dt.replace(second=0).time()
+
+    def get_ankunft_fahrgast(self, station):
+        """Ankunftszeit gerundet auf die nächste volle Minute.
+
+        Sucht idx intern selbst — kein Parameter nötig.
+
+        Args:
+            station: Station-Objekt
+
+        Returns:
+            time-Objekt oder None
+        """
+        ergebnis = self.get_abfahrt(station)   # idx intern holen
+        if not ergebnis:
+            return None
+
+        idx, _     = ergebnis
+        ankunft_dt = self.get_ankunft(station, idx)
+
+        if ankunft_dt.second > 0:
+            ankunft_dt += timedelta(minutes=1)
+
+        return ankunft_dt.replace(second=0).time()
+
     def __str__(self):
         return f"Zug({self.linie.name}, {self.startzeit.strftime('%H:%M')})"
 
@@ -131,9 +175,44 @@ class ZugManager:
 
             zug, abfahrt, ankunft = ergebnis
             fahrten.append((linie_name, zug, abfahrt, ankunft))
-            naechste_zeit = ankunft.strftime("%H:%M")
+
+            # Umstiegspuffer: Ankunft + Mindestumstiegszeit der Umstiegsstation
+            umstiegsstation = seg_stationen[-1]
+            puffer          = timedelta(minutes=umstiegsstation.min_umstiegszeit)
+            naechste_zeit   = (ankunft + puffer).strftime("%H:%M")
 
         return fahrten
+
+    def finde_beste_fahrt(self, start_name, ziel_name, wunschzeit):
+        """Findet die beste Fahrt: wenigste Umstiege, bei Gleichstand früheste Ankunft.
+
+        Probiert alle möglichen Routen aus und wählt nach zwei Kriterien:
+        1. Wenigste Umstiege (US 4.3.1)
+        2. Bei Gleichstand: früheste Ankunft (US 4.3.2)
+
+        Args:
+            start_name: STRING - Name der Startstation
+            ziel_name:  STRING - Name der Zielstation
+            wunschzeit: STRING "HH:MM"
+
+        Returns:
+            (Route, fahrten) oder (None, None)
+        """
+        alle_routen = self.netzwerk.finde_alle_routen(start_name, ziel_name)
+
+        kandidaten = []
+        for route in alle_routen:
+            fahrten = self.finde_fahrten(route, wunschzeit)
+            if fahrten:
+                umstiege = len(route.get_umstiegestationen())
+                ankunft  = fahrten[-1][3]
+                kandidaten.append((umstiege, ankunft, route, fahrten))
+
+        if not kandidaten:
+            return None, None
+
+        beste = min(kandidaten, key=lambda x: (x[0], x[1]))
+        return beste[2], beste[3]   # route, fahrten
 
     def finde_naechsten_zug(self, start, ziel, wunschzeit, linie_name=None):
         """Findet nächsten Zug nach Wunschzeit von Start nach Ziel.
@@ -169,8 +248,14 @@ class ZugManager:
             if not ziel_result:
                 continue
 
-            ziel_idx, _ = ziel_result
-            ankunft = zug.get_ankunft(ziel, ziel_idx)
+            ziel_idx, ziel_abfahrt = ziel_result
+
+            # Endstationen: Wendezeit (haltezeit) abziehen
+            # Normale Stationen: Abfahrtszeit = Fahrplan-Ankunft
+            if ziel.ist_endhaltestelle:
+                ankunft = zug.get_ankunft(ziel, ziel_idx)
+            else:
+                ankunft = ziel_abfahrt
 
             return (zug, abfahrt, ankunft)
 

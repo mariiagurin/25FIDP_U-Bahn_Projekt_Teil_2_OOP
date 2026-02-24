@@ -1,220 +1,321 @@
 from datetime import datetime
 from difflib import get_close_matches
 
-class EingabeValidator:
-    """Klasse zur Validierung und Normalisierung von Benutzereingaben"""
 
-    def __init__(self, netzwerk):
-        """Initialisiert den Validator mit Netzwerk-Zugriff"""
-        self.netzwerk = netzwerk
+# ==============================================================================
+# BASISKLASSE: Frage
 
-        # Kürzel-Mapping für die Ersetzung von häufigen Abkürzungen
-        self.station_kuerzel = {
-            "hbf": "hauptbahnhof",
-            "hbf.": "hauptbahnhof",
-            "str": "straße",
-            "str.": "straße",
-            "fr.": "Friedrich",
-            "fuerth hbf.": "fuerth hauptbahnhof",
-            "fuerth hbf": "fuerth hauptbahnhof",
-        }
-        
-    # Hilfsfunktion
+class Frage:
+    """Basisklasse für alle Benutzereingaben.
 
-    # 1. normalisieren
+    Jede Unterklasse überschreibt nur validiere() mit eigener Logik.
+    stellen() ist immer gleich: input → normalisieren → validieren → loop.
+
+    Args:
+        prompt:        Anzeigetext für den Benutzer
+        fehlermeldung: Text wenn Eingabe ungültig
+    """
+
+    def __init__(self, prompt, fehlermeldung):
+        self.prompt        = prompt
+        self.fehlermeldung = fehlermeldung
+
+    def stellen(self):
+        """Fragt den Benutzer und wiederholt bis Eingabe gültig.
+
+        Returns:
+            Ergebnis von validiere() — Typ je nach Unterklasse
+        """
+        while True:
+            eingabe  = input(self.prompt)
+            norm     = self._normalisiere(eingabe)
+            ergebnis = self.validiere(norm)
+
+            if ergebnis is not None:
+                return ergebnis
+
+            print(self.fehlermeldung)
+
+    def validiere(self, eingabe):
+        """Validiert die normalisierte Eingabe.
+
+        Wird von jeder Unterklasse überschrieben (Polymorphie!).
+
+        Args:
+            eingabe: normalisierter Eingabe-String
+
+        Returns:
+            Ergebnis wenn gültig, None wenn ungültig
+        """
+        raise NotImplementedError
 
     def _normalisiere(self, eingabe):
-        """Normalisiert die Eingabe: entfernt Leerzeichen (strip), 
-        konvertiert zu Kleinbuchstaben (lower) und entfernt Umlaute"""
+        """Normalisiert Eingabe: strip, lower, Umlaute ersetzen."""
         eingabe = eingabe.strip().lower()
         eingabe = eingabe.replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
         return eingabe
-        
-    # 2. fuzzy match
 
     def _finde_fuzzy_match(self, eingabe, optionen, schwelle=0.8):
-        """Findet den besten Fuzzy-Match für die Eingabe in den Möglichkeiten
-        
-        Args:
-            eingabe (str): Die Benutzereingabe
-            optionen (list): Liste der gültigen Optionen
-            schwelle (float): Mindestähnlichkeit für einen Match
-            
-        Returns:
-            str oder None: Der beste Match oder None, 
-            wenn kein Match über der Schwelle gefunden wurde"""
-        
+        """Findet besten Fuzzy-Match in Optionsliste."""
         matches = get_close_matches(eingabe, optionen, n=1, cutoff=schwelle)
-
-        if matches:
-            return matches[0]
-        else:
-            return None 
-        
-    # ersetze Kürzel durch vollständigen Namen
-
-    def _ersetze_kuerzel(self, eingabe):
-        """Ersetzt bekannte Kürzel durch vollständige Namen
-        Args:
-            eingabe (str): normalisierte eingabe
-        
-        Returns: str: Vollständiger Name oder unveränderte Eingabe, 
-        wenn kein Kürzel gefunden wurde"""
-
-        return self.station_kuerzel.get(eingabe, eingabe)
+        return matches[0] if matches else None
 
 
-#==============================================================================
-#==============================================================================
+# ==============================================================================
+# UNTERKLASSE: StationFrage
 
-    # frage_station
+class StationFrage(Frage):
+    """Fragt nach einer Station mit Fuzzy-Matching und Kürzel-Erkennung.
+
+    Args:
+        netzwerk: Netzwerk-Objekt für Stationssuche
+        prompt:   Anzeigetext
+    """
+
+    KUERZEL = {
+        "hbf":        "hauptbahnhof",
+        "hbf.":       "hauptbahnhof",
+        "str":        "strasse",
+        "str.":       "strasse",
+        "fuerth hbf": "fuerth hauptbahnhof",
+    }
+
+    def __init__(self, netzwerk, prompt):
+        super().__init__(prompt, "Station nicht gefunden. Bitte erneut eingeben.\n")
+        self.netzwerk = netzwerk
+
+    def validiere(self, eingabe):
+        """Sucht Station per Fuzzy-Match. Gibt Station-Objekt oder None zurück."""
+        norm = self.KUERZEL.get(eingabe, eingabe)
+
+        alle_stationen   = list(self.netzwerk.stationen.keys())
+        norm_zu_original = {
+            self.KUERZEL.get(self._normalisiere(s), self._normalisiere(s)): s
+            for s in alle_stationen
+        }
+
+        match = self._finde_fuzzy_match(norm, list(norm_zu_original.keys()))
+        if not match:
+            return None
+
+        return self.netzwerk.get_station(norm_zu_original[match])
+
+
+# ==============================================================================
+# UNTERKLASSE: ZeitFrage
+
+class ZeitFrage(Frage):
+    """Fragt nach einer Uhrzeit — akzeptiert flexible Formate.
+
+    Akzeptiert (US 4.4):
+        "08:15"  → 08:15    (Standard)
+        "8:15"   → 08:15    (einstellige Stunde)
+        "8:5"    → 08:05    (einstellige Minute)
+        "08.15"  → 08:15    (Punkt als Trennzeichen)
+        "08,15"  → 08:15    (Komma als Trennzeichen)
+        "08 15"  → 08:15    (Leerzeichen als Trennzeichen)
+        "0815"   → 08:15    (ohne Trenner)
+        "815"    → 08:15    (ohne Trenner, einstellige Stunde)
+        "8"      → 08:00    (nur Stunde)
+    """
+
+    def __init__(self):
+        super().__init__(
+            "Wann moechten Sie fahren? (HH:MM): ",
+            "Ungueltiges Zeitformat. Bitte z.B. 08:15 oder 815 eingeben."
+        )
+
+    def validiere(self, eingabe):
+        """Parst Zeitstring flexibel. Gibt datetime oder None zurueck."""
+
+        # Fall 1: Mit Trennzeichen : . , oder Leerzeichen
+        for trennzeichen in [":", ".", ",", " "]:
+            if trennzeichen in eingabe:
+                teile   = eingabe.split(trennzeichen)
+                stunden = int(teile[0])
+                minuten = int(teile[1]) if teile[1] else 0
+                return self._baue_zeit(stunden, minuten)
+
+        # Fall 2: Nur Ziffern — ohne Trennzeichen
+        if eingabe.isdigit():
+            if len(eingabe) <= 2:       # "8" oder "08" → 08:00
+                return self._baue_zeit(int(eingabe), 0)
+            elif len(eingabe) == 3:     # "815" → 8:15
+                return self._baue_zeit(int(eingabe[0]), int(eingabe[1:]))
+            else:                       # "0815" → 08:15
+                return self._baue_zeit(int(eingabe[:2]), int(eingabe[2:]))
+
+        return None
+
+    def _baue_zeit(self, stunden, minuten):
+        """Validiert Stunden/Minuten und baut datetime (00:00 bis 23:59)."""
+        if 0 <= stunden <= 23 and 0 <= minuten <= 59:
+            return datetime(1900, 1, 1, stunden, minuten)
+        return None
+
+
+# ==============================================================================
+# UNTERKLASSE: AuswahlFrage
+
+class AuswahlFrage(Frage):
+    """Fragt nach einer Auswahl aus vorgegebenen Optionen per Fuzzy-Match.
+
+    Args:
+        prompt:    Anzeigetext
+        optionen:  Dict {norm_option: rückgabewert}
+                   z.B. {"einzelticket": False, "einzel": False,
+                          "mehrticket": True,   "mehr":   True}
+    """
+
+    def __init__(self, prompt, fehlermeldung, optionen):
+        super().__init__(prompt, fehlermeldung)
+        self.optionen = optionen   # {option_string: rückgabewert}
+
+    def validiere(self, eingabe):
+        """Fuzzy-Match gegen Optionen. Gibt Rückgabewert oder None zurück."""
+        match = self._finde_fuzzy_match(eingabe, list(self.optionen.keys()))
+        if not match:
+            return None
+        return self.optionen[match]
+
+
+# ==============================================================================
+# KLASSE: EingabeValidator
+
+class EingabeValidator:
+    """Stellt alle Benutzerfragen für den Ticketautomaten.
+
+    Nutzt Frage-Unterklassen — jede Frage kennt ihre eigene Validierungslogik.
+
+    Args:
+        netzwerk: Netzwerk-Objekt für Stationssuche
+    """
+
+    def __init__(self, netzwerk):
+        self.netzwerk = netzwerk
+
     def eingabe_station(self, prompt):
-        """Fragt den Benutzer nach der gewünschten Station und validiert die Eingabe
-        
-        Args:
-            prompt (str): Anzeigetext für Start- oder Zielstation (z. B. "Start-Station: ")
-            
-        Returns: Station: gefundenes Station-Objekt aus dem Netzwerk"""
-        
-        while True:
-            eingabe = input(prompt)
-            norm = self._normalisiere(eingabe)
-            norm = self._ersetze_kuerzel(norm)
+        """Fragt nach einer Station.
 
-            # alle Stationen aus Netzwerk holen
-            alle_stationen = list(self.netzwerk.stationen.keys())
-            
-            # alle Stationen normalisieren und Kürzel ersetzen
-            norm_zu_original = {
-            self._ersetze_kuerzel(self._normalisiere(s)): s
-            for s in alle_stationen}
+        Returns:
+            Station-Objekt
+        """
+        return StationFrage(self.netzwerk, prompt).stellen()
 
-            # Fuzzy-Match suchen
-            match = self._finde_fuzzy_match(norm, list(norm_zu_original.keys()), 0.8)
-
-            
-            if match:
-                original_name = norm_zu_original[match]  # ← Zurück zum Original!
-                station = self.netzwerk.get_station(original_name)
-                return station
-            
-            else:
-                print("Station nicht gefunden. Bitte erneut eingeben.\n")
-                
-    # Wunschzeit
     def frage_wunschzeit(self):
-        """Fragt den Benutzer nach der gewünschten Zeit für Abfahrt
-        
+        """Fragt nach der Wunschzeit.
+
         Returns:
-            datetime.time: Die eingegebene Zeit als datetime-Objekt"""
-        
-        while True:
-            eingabe = input("Wann möchten Sie fahren? (HH:MM): ")
+            datetime-Objekt
+        """
+        return ZeitFrage().stellen()
 
-            try:
-                zeit = datetime.strptime(eingabe, "%H:%M")  # Validierung des Formats
-                return zeit # datetime_objekt zurückgeben
-            except ValueError:
-                print("Ungültiges Zeitformat. Bitte geben Sie die Zeit im Format HH:MM ein.")
+    def parse_zeit(self, eingabe):
+        """Parst Zeitstring ohne input() — für Adapter nutzbar.
 
-#==============================================================================
+        Args:
+            eingabe: Zeitstring "HH:MM"
 
-    # einzel/mehrticket
+        Returns:
+            String "HH:MM"
+
+        Raises:
+            ValueError: wenn Format ungültig
+        """
+        frage    = ZeitFrage()
+        norm     = frage._normalisiere(eingabe)
+        ergebnis = frage.validiere(norm)
+
+        if not ergebnis:
+            raise ValueError(f"Ungültiges Zeitformat: '{eingabe}'")
+
+        return ergebnis.strftime("%H:%M")
+
     def frage_einzel_mehrticket(self):
-        """Fragt den Benutzer, ob er ein Einzelticket oder Mehrticket möchte
-        
+        """Fragt nach Einzelticket oder Mehrfahrtenticket.
+
         Returns:
-            bool: False für Einzelticket, True für Mehrfahrtenticket"""
-        
-        while True:
-            eingabe = input("Möchten Sie ein Einzelticket oder Mehrticket? (einzelticket/mehrticket): ")
-            norm = self._normalisiere(eingabe)
-            optionen = ["einzelticket", "einzel", "mehrticket", "mehr"]
+            False = Einzelticket, True = Mehrfahrtenticket
+        """
+        return AuswahlFrage(
+            prompt        = "Möchten Sie ein Einzelticket oder Mehrticket? (einzelticket/mehrticket): ",
+            fehlermeldung = "Ungültige Eingabe. Bitte 'einzelticket' oder 'mehrticket' eingeben.",
+            optionen      = {
+                "einzelticket": False,
+                "einzel":       False,
+                "mehrticket":   True,
+                "mehr":         True,
+            }
+        ).stellen()
 
-            match = self._finde_fuzzy_match(norm, optionen, 0.8)
-            if not match:
-                print("Ungültige Eingabe. Bitte geben Sie 'einzelticket' oder 'mehrticket' ein.")
-                continue
-        
-            if match in ["einzelticket", "einzel"]:
-                return False  # Einzelticket
-            else:
-                return True  # Mehrticket
-#==============================================================================
-
-    # Sozialrabatt
     def frage_sozialrabatt(self):
-        """Fragt den Benutzer, ob er Anspruch auf Sozialrabatt hat
-        
+        """Fragt nach Sozialrabatt.
+
         Returns:
-            Bool: True, wenn Anspruch auf Sozialrabatt besteht, sonst False"""
-        
-        while True:
-            eingabe = input("Haben Sie Anspruch auf Sozialrabatt? (ja/nein): ")
-            norm = self._normalisiere(eingabe)
+            True = Rabatt, False = kein Rabatt
+        """
+        return AuswahlFrage(
+            prompt        = "Haben Sie Anspruch auf Sozialrabatt? (ja/nein): ",
+            fehlermeldung = "Ungültige Eingabe. Bitte 'ja' oder 'nein' eingeben.",
+            optionen      = {
+                "ja":   True,
+                "nein": False,
+            }
+        ).stellen()
 
-            if norm == "ja": # alternativ ["ja", "yes", "y"] für mehr Flexibilität
-                return True  # Sozialrabatt
-            elif norm == "nein": # alternativ ["nein", "no", "n"] für mehr Flexibilität
-                return False  # Kein Rabatt
-            else:
-                print("Ungültige Eingabe. Bitte geben Sie 'ja' oder 'nein' ein.")   
-
-#==============================================================================
-
-# Karte/Bar-Zahlung
     def frage_zahlart(self):
-        """Fragt den Benutzer, ob er mit Karte oder Bar bezahlen möchte"""
+        """Fragt nach Zahlungsart.
 
-        while True:
-            eingabe = input("Möchten Sie mit Karte oder Bar bezahlen? (karte/bar): ")
-            norm = self._normalisiere(eingabe)
-            optionen = ["kartenzahlung", "karte", "barzahlung", "bar"]
+        Returns:
+            False = Kartenzahlung, True = Barzahlung
+        """
+        return AuswahlFrage(
+            prompt        = "Möchten Sie mit Karte oder Bar bezahlen? (karte/bar): ",
+            fehlermeldung = "Ungültige Eingabe. Bitte 'karte' oder 'bar' eingeben.",
+            optionen      = {
+                "kartenzahlung": False,
+                "karte":         False,
+                "barzahlung":    True,
+                "bar":           True,
+            }
+        ).stellen()
 
-            match = self._finde_fuzzy_match(norm, optionen, 0.8)
-            if not match:
-                print("Ungültige Eingabe. Bitte geben Sie 'karte' oder 'bar' ein.")
-                continue
-        
-            if match in ["kartenzahlung", "karte"]:
-                return False  # Kartenzahlung
-            else:
-                return True  # Barzahlung
-            
 
-#==============================================================================
+# ==============================================================================
 if __name__ == "__main__":
-    
+
     import daten
     from netzwerk import Netzwerk
 
-    # Setup
-    linien_daten = [{"name": "U1", "stationen": daten.linie1_stationen, "fahrtzeiten": daten.linie1_fahrtzeiten}]
-    netz = Netzwerk(linien_daten)
-    netz.setze_haltezeiten(daten.haltezeiten_speziell)
+    linien_daten = [
+        {
+            "name":               "U1",
+            "stationen":          daten.linie1_stationen,
+            "fahrtzeiten":        daten.linie1_fahrtzeiten,
+            "haltezeit_end":      daten.linie1_haltezeit_endstation,
+            "haltezeit_umstieg":  daten.linie1_haltezeit_umstieg,
+            "haltezeit_standard": daten.linie1_haltezeit_standard,
+        },
+    ]
+    netz      = Netzwerk(linien_daten)
     validator = EingabeValidator(netz)
 
-    # 1. Station
-    print("\n--- Station ---")
-    station = validator.eingabe_station("Station: ")
-    print(f">>> Gefunden: {station.name}")
+    # print("\n--- Station ---")
+    # station = validator.eingabe_station("Station: ")
+    # print(f">>> Gefunden: {station.name}")
 
-    # # 2. Wunschzeit
-    # print("\n--- Wunschzeit ---")
-    # zeit = validator.frage_wunschzeit()
-    # print(f">>> Gefunden: {zeit.strftime('%H:%M')}")
+    print("\n--- Wunschzeit ---")
+    zeit = validator.frage_wunschzeit()
+    print(f">>> Gefunden: {zeit.strftime('%H:%M')}")
 
-    # # 3. Einzel / Mehrticket
     # print("\n--- Ticketart ---")
     # ist_mehrticket = validator.frage_einzel_mehrticket()
     # print(f">>> Mehrticket: {ist_mehrticket}")
 
-    # # 4. Sozialrabatt
     # print("\n--- Sozialrabatt ---")
     # hat_rabatt = validator.frage_sozialrabatt()
     # print(f">>> Sozialrabatt: {hat_rabatt}")
 
-    # # 5. Zahlart
     # print("\n--- Zahlart ---")
     # ist_bar = validator.frage_zahlart()
     # print(f">>> Barzahlung: {ist_bar}")

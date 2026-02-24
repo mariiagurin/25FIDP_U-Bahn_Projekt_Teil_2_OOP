@@ -37,14 +37,14 @@ class Ticket:
             text = text + ", Barzahlung"
 
         return text
- 
+
 
 class Tarif:
     """Verwaltet Preisberechnung nach Tariftabelle"""
-    
+
     def __init__(self):
         """Erstellt Tarif-Objekt mit Preistabelle"""
-        
+
         # Preistabelle: {kategorie: {einzelticket: preis, mehrfahrt: preis}}
         self.preistabelle = {
             "kurz": {
@@ -60,23 +60,22 @@ class Tarif:
                 "mehrfahrt": 10.00
             }
         }
-    
+
     def hole_basispreis(self, ticket):
         """Holt Basispreis aus Tabelle
-        
+
         Args:
             ticket (Ticket): Ticket-Objekt
-            
+
         Returns:
             float: Basispreis
         """
         kategorie = ticket.get_kategorie()
-        
+
         if ticket.ist_mehrfahrt:
             return self.preistabelle[kategorie]["mehrfahrt"]
         else:
             return self.preistabelle[kategorie]["einzelticket"]
-    
 
     def berechne_preis(self, ticket):
         """Berechnet Endpreis
@@ -109,12 +108,12 @@ class Tarif:
         endpreis = round(preis, 2)
 
         return endpreis
-    
+
+
 # ==============================================================================
 # Test
 
 if __name__ == "__main__":
-
     tarif = Tarif()
 
     # Stationsanzahl eingeben

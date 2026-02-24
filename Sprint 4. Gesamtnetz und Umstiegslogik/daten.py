@@ -62,3 +62,11 @@ linie3_takt                 = 10        # TODO: echten Takt eintragen
 linie3_haltezeit_endstation = 60        # TODO: echte Haltezeit eintragen
 linie3_haltezeit_umstieg    = 60        # TODO: echte Haltezeit eintragen
 linie3_haltezeit_standard   = 30        # TODO: echte Haltezeit eintragen
+
+
+# ==============================================================================
+# Umstiegszeiten (Minuten)
+# ==============================================================================
+
+umstiegszeit_hauptknoten = 5   # Hauptknoten: 3+ Linien (Hauptbahnhof, Plärrer)
+umstiegszeit_knoten      = 3   # Knoten:      2 Linien  (alle anderen)

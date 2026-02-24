@@ -34,7 +34,11 @@ if __name__ == "__main__":
             "haltezeit_standard": daten.linie3_haltezeit_standard,
         },
     ]
-    netz = Netzwerk(linien_daten)
+    umstiegszeiten = {
+        "hauptknoten": daten.umstiegszeit_hauptknoten,   # 5 min (3+ Linien)
+        "knoten":      daten.umstiegszeit_knoten,        # 3 min (2 Linien)
+    }
+    netz = Netzwerk(linien_daten, umstiegszeiten)
 
     # 2. ZugManager erstellen
     betrieb_daten = {
@@ -51,24 +55,19 @@ if __name__ == "__main__":
 
     # 4. Eingaben holen
 
-    while True:
-        start = validator.eingabe_station("Start-Station: ")
-        ziel  = validator.eingabe_station("Ziel-Station:  ")
-        route = netz.finde_route(start.name, ziel.name)
-
-        if route:
-            break
-        else:
-            print("\nKeine Route gefunden! Bitte andere Stationen wählen.\n")
+    start = validator.eingabe_station("Start-Station: ")
+    ziel  = validator.eingabe_station("Ziel-Station:  ")
 
     wunschzeit = validator.frage_wunschzeit().strftime("%H:%M")
 
 
-    # 5. Züge finden
+    # 5. Beste Fahrt finden (wenigste Umstiege → früheste Ankunft)
 
-    fahrten = zugmanager.finde_fahrten(route, wunschzeit)
+    route, fahrten = zugmanager.finde_beste_fahrt(start.name, ziel.name, wunschzeit)
 
-    if not fahrten:
+    if not route:
+        print("\nKeine Route gefunden!")
+    elif not fahrten:
         print("\nKein Zug mehr heute!")
 
 
